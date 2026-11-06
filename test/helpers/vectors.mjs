@@ -1,0 +1,11 @@
+// RFC 6238 Appendix B, HMAC-SHA1, 30 second step, last 6 of the 8 digit codes.
+export const RFC_SECRET = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+export const RFC_VECTORS = [
+  [59, '287082'],
+  [1111111109, '081804'],
+  [1111111111, '050471'],
+  [1234567890, '005924'],
+  [2000000000, '279037'],
+  [20000000000, '353130'],
+];
+export const DEMO_SECRET = 'JBSWY3DPEHPK3PXP';

@@ -11,7 +11,7 @@ cannot run inside a flow. This repo gives two ways round that:
 | **A. Inline (recommended)** | `maestro/totpInline.js` computes the code in pure JavaScript inside the Maestro sandbox. No server, no app changes. | Default. One file dropped next to your flow. |
 | **B. Local server** | `otp-server.js` generates codes with `otplib`; the flow fetches them with `http.get`. | If you want one shared code source for several tools (Maestro, Playwright, manual testing). |
 
-Both are verified against the RFC 6238 test vectors (`npm test`).
+Both are verified against the RFC 6238 test vectors. `npm test` runs the full suite, see [Tests](#tests).
 
 ## Option A: inline, no server
 
@@ -183,6 +183,27 @@ The problems:
 
 None of this applies to unit tests. Mock the OIDC client and the deep link callback
 there. The OTP is purely an E2E concern.
+
+## Tests
+
+```bash
+npm test
+```
+
+Uses `node:test`, no extra dependencies. Coverage:
+
+| Area | Positive | Negative |
+|------|----------|----------|
+| `totp.js` | RFC 6238 vectors, agrees with otplib, six digits with leading zeros, waits for the next window when fewer than `TOTP_MIN_REMAINING` seconds remain, normalises spaced/dashed/lowercase keys | missing or blank secret, non base32 secret, invalid `TOTP_MIN_REMAINING` |
+| `otp-server.js` | 200 with a valid code and remaining seconds, works with and without a token, secret never in response | missing token, wrong token, unknown path, non-GET, invalid secret at startup, 500 with error body when generation fails |
+| `otp-print.js` | prints six digits, verbose format | exits 1 with message when secret missing |
+| `maestro/totpInline.js` | run in a fake Maestro sandbox: RFC vectors, agrees with otplib, long secrets, normalisation, leading zeros, window roll-over, default min remaining, nothing sensitive logged, ES5 only | missing or empty `TOTP_SECRET`, invalid base32 characters |
+| `maestro/getOtp.js` | stores code, sends token header, default URL | non-2xx, missing code, wrong length, non-digit, numeric instead of string, non-JSON body |
+| `scripts/run-maestro-with-otp.sh` | with a fake `maestro` on `PATH`: server up, URL and token passed, extra args forwarded, code fetched is valid, server stopped afterwards, caller token honoured | each required variable missing, no flow file, failing maestro exit code propagated |
+
+The negative tests found two real bugs while being written: `getOtp.js` accepted a
+numeric `code` and `otplib` silently generates codes from a non base32 secret. Both
+are fixed and covered.
 
 ## Gotchas
 

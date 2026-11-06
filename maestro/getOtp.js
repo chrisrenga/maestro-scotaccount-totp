@@ -12,7 +12,7 @@ if (!response.ok) {
 }
 
 var payload = json(response.body);
-if (!payload.code || !/^\d{6}$/.test(payload.code)) {
+if (typeof payload.code !== 'string' || !/^\d{6}$/.test(payload.code)) {
   throw new Error('TOTP server returned an invalid code: ' + response.body);
 }
 
