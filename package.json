@@ -8,7 +8,7 @@
     "otp:server": "node otp-server.js",
     "otp:print": "node otp-print.js",
     "e2e:scotaccount": "bash scripts/run-maestro-with-otp.sh maestro/scotaccount-login.yaml",
-    "test": "node --test \"test/**/*.test.mjs\"",
+    "test": "node --test test/totp.test.mjs test/otp-server.test.mjs test/otp-print.test.mjs test/totpInline.test.mjs test/getOtp.test.mjs test/run-maestro-with-otp.test.mjs",
     "e2e:scotaccount:noserver": "maestro test maestro/scotaccount-login-noserver.yaml"
   },
   "dependencies": {
