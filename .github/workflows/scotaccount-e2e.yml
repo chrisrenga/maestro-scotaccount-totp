@@ -1,0 +1,39 @@
+# Example only. Adapt the build and emulator steps to your app.
+name: ScotAccount E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1-5"
+
+concurrency:
+  group: scotaccount-e2e   # one run at a time, the test account is shared
+  cancel-in-progress: false
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install TOTP helper
+        run: npm ci
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      # Build your app and boot an emulator here, then install the APK.
+      # e.g. reactivecircus/android-emulator-runner
+
+      - name: Run ScotAccount login flow
+        env:
+          SCOTACCOUNT_TOTP_SECRET: ${{ secrets.SCOTACCOUNT_TOTP_SECRET }}
+          SCOTACCOUNT_EMAIL: ${{ secrets.SCOTACCOUNT_EMAIL }}
+          SCOTACCOUNT_PASSWORD: ${{ secrets.SCOTACCOUNT_PASSWORD }}
+        run: scripts/run-maestro-with-otp.sh maestro/scotaccount-login.yaml

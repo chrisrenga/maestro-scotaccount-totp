@@ -1,0 +1,39 @@
+# Example flow. Adjust appId and the element selectors to match the app
+# and the ScotAccount screens. Run via scripts/run-maestro-with-otp.sh
+# so the TOTP server is up before the flow starts.
+appId: com.example.app
+---
+- launchApp:
+    clearState: true
+
+- tapOn: "Sign in with ScotAccount"
+
+# ScotAccount web pages (Chrome Custom Tab on Android, in-app browser on iOS)
+- extendedWaitUntil:
+    visible: "Email address"
+    timeout: 20000
+- tapOn: "Email address"
+- inputText: ${SCOTACCOUNT_EMAIL}
+- tapOn: "Password"
+- inputText: ${SCOTACCOUNT_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+
+# Fetch the code as late as possible, right before typing it
+- extendedWaitUntil:
+    visible: "Security code"
+    timeout: 20000
+- runScript:
+    file: getOtp.js
+    env:
+      TOTP_SERVER_URL: ${TOTP_SERVER_URL}
+      TOTP_SERVER_TOKEN: ${TOTP_SERVER_TOKEN}
+- tapOn: "Security code"
+- inputText: ${output.otp}
+- hideKeyboard
+- tapOn: "Continue"
+
+# Back in the app after the OIDC redirect
+- extendedWaitUntil:
+    visible: "Welcome"
+    timeout: 30000
