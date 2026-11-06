@@ -1,9 +1,48 @@
 # ScotAccount TOTP helper for Maestro E2E
 
-Maestro's JavaScript runs in a GraalJS sandbox with no Node libraries, so it cannot
-compute a TOTP code itself. This package runs a tiny local HTTP server that generates
-codes from the test account's secret. The Maestro flow fetches a fresh code with
-`http.get` right before typing it.
+ScotAccount supports an authenticator app (TOTP) as its second factor. For E2E
+tests, capture the test account's TOTP secret once and generate codes in the test.
+
+Maestro's JavaScript runs in a GraalJS sandbox with no Node libraries, so `otplib`
+cannot run inside a flow. This repo gives two ways round that:
+
+| Option | How | When to use |
+|--------|-----|-------------|
+| **A. Inline (recommended)** | `maestro/totpInline.js` computes the code in pure JavaScript inside the Maestro sandbox. No server, no app changes. | Default. One file dropped next to your flow. |
+| **B. Local server** | `otp-server.js` generates codes with `otplib`; the flow fetches them with `http.get`. | If you want one shared code source for several tools (Maestro, Playwright, manual testing). |
+
+Both are verified against the RFC 6238 test vectors (`npm test`).
+
+## Option A: inline, no server
+
+Copy `maestro/totpInline.js` next to your flow and add, on the security code screen:
+
+```yaml
+- extendedWaitUntil:
+    visible: "Security code"
+    timeout: 20000
+- runScript:
+    file: totpInline.js
+    env:
+      TOTP_SECRET: ${MAESTRO_TOTP_SECRET}
+- tapOn: "Security code"
+- inputText: ${output.otp}
+```
+
+Run it:
+
+```bash
+export MAESTRO_TOTP_SECRET='JBSW Y3DP EHPK 3PXP'   # Maestro CLI exposes MAESTRO_* vars to flows
+maestro test -e SCOTACCOUNT_EMAIL=… -e SCOTACCOUNT_PASSWORD=… maestro/scotaccount-login-noserver.yaml
+```
+
+The script is ES5 so it also works if Rhino is enabled. If fewer than 5 seconds remain
+in the current 30 second window it generates the code for the next window instead
+(`TOTP_MIN_REMAINING` to change). It never logs the code or the secret.
+
+See `maestro/scotaccount-login-noserver.yaml` for the full flow.
+
+## Option B: local server
 
 ```
 ┌──────────────┐  http.get /otp   ┌──────────────────┐
@@ -20,9 +59,12 @@ codes from the test account's secret. The Maestro flow fetches a fresh code with
 | `totp.js` | Loads and normalises the secret, generates a code, waits if the 30s window is nearly over |
 | `otp-server.js` | Local HTTP server exposing `GET /otp` |
 | `otp-print.js` | Prints one code to stdout (debugging, or the pre-compute approach) |
-| `maestro/getOtp.js` | Script run inside Maestro that fetches the code into `output.otp` |
-| `maestro/scotaccount-login.yaml` | Example login flow |
-| `scripts/run-maestro-with-otp.sh` | Starts the server, runs the flow, stops the server |
+| `maestro/totpInline.js` | Option A: pure-JS TOTP run inside Maestro, writes `output.otp` |
+| `maestro/scotaccount-login-noserver.yaml` | Option A example flow |
+| `maestro/getOtp.js` | Option B: fetches the code from the server into `output.otp` |
+| `maestro/scotaccount-login.yaml` | Option B example flow |
+| `scripts/run-maestro-with-otp.sh` | Option B: starts the server, runs the flow, stops the server |
+| `test/totpInline.test.mjs` | Checks the inline script against RFC 6238 vectors and otplib |
 
 ## One-time setup: get the secret
 
@@ -40,7 +82,7 @@ npm install
 cp .env.example .env   # local use only, fill in real values
 ```
 
-## Run locally
+## Option B: run locally
 
 ```bash
 export SCOTACCOUNT_TOTP_SECRET='JBSW Y3DP EHPK 3PXP'
@@ -64,7 +106,7 @@ Sanity check the code against the authenticator app on the phone:
 npm run otp:print
 ```
 
-## Consuming from an existing Maestro flow
+## Option B: consuming from an existing Maestro flow
 
 Copy `maestro/getOtp.js` next to your flow and add these steps where the security code screen appears:
 
@@ -111,7 +153,7 @@ is correct even for Android emulators and physical devices.
 Make sure the runner's clock is NTP synced. Clock drift is the most common reason a
 correct secret produces rejected codes.
 
-## Alternative: pre-compute without a server
+## Alternative: pre-compute with otp-print.js
 
 If running a background process is awkward, generate one code and pass it in:
 
@@ -122,6 +164,20 @@ maestro test -e OTP_CODE="$(node otp-print.js)" flow.yaml
 Then use `inputText: ${OTP_CODE}`. This only works if the flow reaches the security
 code screen within the remaining window (at most 30 seconds from app launch), so it is
 flaky on slow CI simulators. Prefer the server.
+
+## What about generating the code inside the React Native app?
+
+It is possible but not worth it. You would add an E2E-only screen that computes the
+code from a secret passed via launch arguments, render it in a `Text` with a testID,
+and use Maestro's `copyTextFrom` / `pasteText` to move it into the ScotAccount page.
+The problems:
+
+- ScotAccount opens in a browser (Custom Tab or in-app browser), so the app is
+  backgrounded exactly when you need the code. Switching back and forth is slow and
+  the 30 second window often expires.
+- Passing the secret needs a native module for launch arguments, or baking it into
+  the build. Test-only code ends up in the app bundle.
+- It gives you nothing over Option A, which already runs without a server.
 
 ## Jest / React Native Testing Library
 

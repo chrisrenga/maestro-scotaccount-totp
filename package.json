@@ -7,7 +7,9 @@
   "scripts": {
     "otp:server": "node otp-server.js",
     "otp:print": "node otp-print.js",
-    "e2e:scotaccount": "bash scripts/run-maestro-with-otp.sh maestro/scotaccount-login.yaml"
+    "e2e:scotaccount": "bash scripts/run-maestro-with-otp.sh maestro/scotaccount-login.yaml",
+    "test": "node test/totpInline.test.mjs",
+    "e2e:scotaccount:noserver": "maestro test maestro/scotaccount-login-noserver.yaml"
   },
   "dependencies": {
     "otplib": "^12.0.1"

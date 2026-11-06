@@ -1,0 +1,39 @@
+# No-server variant. The TOTP code is computed in pure JavaScript inside
+# Maestro's sandbox by totpInline.js. Nothing else needs to run.
+#
+#   export MAESTRO_TOTP_SECRET='…'      # picked up automatically by Maestro CLI
+#   maestro test -e SCOTACCOUNT_EMAIL=… -e SCOTACCOUNT_PASSWORD=… maestro/scotaccount-login-noserver.yaml
+#
+appId: com.example.app
+---
+- launchApp:
+    clearState: true
+
+- tapOn: "Sign in with ScotAccount"
+
+- extendedWaitUntil:
+    visible: "Email address"
+    timeout: 20000
+- tapOn: "Email address"
+- inputText: ${SCOTACCOUNT_EMAIL}
+- tapOn: "Password"
+- inputText: ${SCOTACCOUNT_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+
+# Generate the code as late as possible, right before typing it
+- extendedWaitUntil:
+    visible: "Security code"
+    timeout: 20000
+- runScript:
+    file: totpInline.js
+    env:
+      TOTP_SECRET: ${MAESTRO_TOTP_SECRET}
+- tapOn: "Security code"
+- inputText: ${output.otp}
+- hideKeyboard
+- tapOn: "Continue"
+
+- extendedWaitUntil:
+    visible: "Welcome"
+    timeout: 30000
